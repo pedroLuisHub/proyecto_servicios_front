@@ -1,0 +1,757 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:flutter_modular/flutter_modular.dart';
+import 'package:mobx/mobx.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:dropdown_search/dropdown_search.dart';
+import '../../../core/states/ui_state.dart';
+import '../../../core/widgets/catalogo_dropdown.dart';
+import '../../../core/models/item_detalle_model.dart';
+import '../../../core/models/repuesto_detalle_model.dart';
+import '../../tecnicos/models/tecnico_model.dart';
+import '../../clientes/models/cliente_model.dart';
+import '../../presupuestos/models/presupuesto_model.dart';
+import '../../productos/models/producto_model.dart';
+import '../models/servicio_model.dart';
+import '../servicio_store.dart';
+
+class ServicioFormPage extends StatefulWidget {
+  final ServicioModel? servicio;
+  const ServicioFormPage({super.key, this.servicio});
+
+  @override
+  State<ServicioFormPage> createState() => _ServicioFormPageState();
+}
+
+class _ServicioFormPageState extends State<ServicioFormPage> {
+  final _formKey = GlobalKey<FormState>();
+  final store = Modular.get<ServicioStore>();
+  late ReactionDisposer _disposer;
+
+  String _estado = 'PENDIENTE';
+  int? _tecnicoId;
+  int? _clienteId;
+  int? _presupuestoId;
+  
+  List<ItemDetalleModel> _detalles = [];
+  List<RepuestoDetalleModel> _repuestos = [];
+
+  // Imágenes
+  final List<String> _imagenesPaths = [];
+  final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    store.loadTecnicos();
+    store.loadClientes();
+    store.loadPresupuestos();
+    store.loadProductos(); // Para la lista de repuestos
+    
+    if (widget.servicio != null) {
+      _estado = widget.servicio!.estado;
+      _tecnicoId = widget.servicio!.tecnicoId;
+      _clienteId = widget.servicio!.clienteId;
+      _presupuestoId = widget.servicio!.presupuestoId;
+      _detalles = List.from(widget.servicio!.detalles);
+      _repuestos = List.from(widget.servicio!.repuestos);
+      _imagenesPaths.addAll(widget.servicio!.imagenes);
+    }
+
+    _disposer = reaction(
+      (_) => store.formState,
+      (state) {
+        if (state is SuccessState) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Servicio guardado con éxito')));
+          Modular.to.pop();
+        } else if (state is ErrorState) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text((state as ErrorState).message)));
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _disposer();
+    super.dispose();
+  }
+
+  double get _precioTotalTrabajos => _detalles.fold(0, (sum, item) => sum + item.precio);
+  double get _precioTotalRepuestos => _repuestos.fold(0, (sum, item) => sum + item.subtotal);
+  double get _precioTotalGeneral => _precioTotalTrabajos + _precioTotalRepuestos;
+
+  void _cargarPresupuesto(PresupuestoModel p) {
+    setState(() {
+      _presupuestoId = p.id;
+      _clienteId = p.clienteId;
+      
+      // Copiamos los trabajos a realizar
+      _detalles = p.detalles.map((detalle) => ItemDetalleModel(
+        tipoDispositivoId: detalle.tipoDispositivoId,
+        marcaId: detalle.marcaId,
+        modeloId: detalle.modeloId,
+        tipoServicioId: detalle.tipoServicioId,
+        descripcion: detalle.descripcion,
+        precio: detalle.precio,
+        nombreDispositivo: detalle.nombreDispositivo,
+        nombreMarca: detalle.nombreMarca,
+        nombreModelo: detalle.nombreModelo,
+        nombreServicio: detalle.nombreServicio,
+      )).toList();
+
+      // Copiamos los repuestos
+      _repuestos = p.repuestos.map((repuesto) => RepuestoDetalleModel(
+        productoId: repuesto.productoId,
+        nombreProducto: repuesto.nombreProducto,
+        cantidad: repuesto.cantidad,
+        precioUnitario: repuesto.precioUnitario,
+        subtotal: repuesto.subtotal,
+      )).toList();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ítems del presupuesto importados')));
+  }
+
+  Future<void> _quickRegisterCliente() async {
+    final newCliente = await Modular.to.pushNamed('/clientes/form');
+    if (newCliente != null && newCliente is ClienteModel) {
+      await store.loadClientes();
+      setState(() {
+        _clienteId = newCliente.id;
+      });
+    }
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    if (_imagenesPaths.length >= 5) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Máximo 5 imágenes permitidas')));
+      return;
+    }
+
+    final XFile? image = await _picker.pickImage(source: source, imageQuality: 70);
+    if (image != null) {
+      setState(() {
+        _imagenesPaths.add(image.path);
+      });
+    }
+  }
+
+  void _save() {
+    if (_formKey.currentState!.validate() && _tecnicoId != null && _clienteId != null) {
+      if (_detalles.isEmpty && _repuestos.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Debe registrar al menos un Trabajo o un Repuesto')));
+        return;
+      }
+
+      final servicio = ServicioModel(
+        id: widget.servicio?.id,
+        presupuestoId: _presupuestoId,
+        fechaProgramada: widget.servicio?.fechaProgramada ?? DateTime.now(),
+        precioTotal: _precioTotalGeneral,
+        estado: _estado,
+        clienteId: _clienteId!,
+        tecnicoId: _tecnicoId!,
+        detalles: _detalles,
+        repuestos: _repuestos,
+        imagenes: _imagenesPaths,
+      );
+      store.saveServicio(servicio);
+    } else {
+      if (_clienteId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Por favor, seleccione un cliente')));
+      } else if (_tecnicoId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Por favor, asigne un técnico')));
+      }
+    }
+  }
+
+  // ---- MODAL PARA AÑADIR TRABAJO ----
+  Future<void> _showAddTrabajoModal() async {
+    int? tipoServicioId;
+    int? tipoDispositivoId;
+    int? marcaId;
+    int? modeloId;
+    final descripcionCtrl = TextEditingController();
+    final precioCtrl = TextEditingController();
+    final modalFormKey = GlobalKey<FormState>();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 20, left: 20, right: 20,
+          ),
+          child: Form(
+            key: modalFormKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Nuevo Trabajo a Realizar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 15),
+                  CatalogoDropdown(
+                    label: 'Tipo de Servicio',
+                    tableName: 'tipos_servicio',
+                    value: tipoServicioId,
+                    onChanged: (v) => tipoServicioId = v,
+                  ),
+                  const SizedBox(height: 10),
+                  CatalogoDropdown(
+                    label: 'Tipo de Dispositivo',
+                    tableName: 'tipos_dispositivo',
+                    value: tipoDispositivoId,
+                    onChanged: (v) => tipoDispositivoId = v,
+                  ),
+                  const SizedBox(height: 10),
+                  CatalogoDropdown(
+                    label: 'Marca',
+                    tableName: 'marcas',
+                    value: marcaId,
+                    onChanged: (v) => marcaId = v,
+                  ),
+                  const SizedBox(height: 10),
+                  CatalogoDropdown(
+                    label: 'Modelo',
+                    tableName: 'modelos',
+                    value: modeloId,
+                    onChanged: (v) => modeloId = v,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: descripcionCtrl,
+                    decoration: const InputDecoration(labelText: 'Descripción / Falla *', border: OutlineInputBorder()),
+                    maxLines: 2,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: precioCtrl,
+                    decoration: const InputDecoration(labelText: 'Mano de Obra (Gs.) *', border: OutlineInputBorder()),
+                    keyboardType: TextInputType.number,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (modalFormKey.currentState!.validate()) {
+                        setState(() {
+                          _detalles.add(ItemDetalleModel(
+                            tipoServicioId: tipoServicioId,
+                            tipoDispositivoId: tipoDispositivoId,
+                            marcaId: marcaId,
+                            modeloId: modeloId,
+                            descripcion: descripcionCtrl.text,
+                            precio: double.parse(precioCtrl.text),
+                          ));
+                        });
+                        Navigator.pop(context);
+                      }
+                    },
+                    child: const Text('Agregar Trabajo'),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ---- MODAL PARA AÑADIR REPUESTO ----
+  Future<void> _showAddRepuestoModal() async {
+    int? productoId;
+    ProductoModel? prodSeleccionado;
+    final cantidadCtrl = TextEditingController(text: '1');
+    final modalFormKey = GlobalKey<FormState>();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                top: 20, left: 20, right: 20,
+              ),
+              child: Form(
+                key: modalFormKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Añadir Repuesto / Producto', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 15),
+                      Observer(
+                        builder: (_) {
+                          final state = store.productosState;
+                          if (state is SuccessState<List<ProductoModel>>) {
+                            return DropdownSearch<ProductoModel>(
+                              items: (filter, loadProps) => state.data.where((p) => p.estado).toList(),
+                              itemAsString: (ProductoModel p) => '${p.descripcion} (Stock: ${p.cantidad.toStringAsFixed(0)})',
+                              decoratorProps: const DropDownDecoratorProps(
+                                decoration: InputDecoration(
+                                  labelText: 'Buscar Producto',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              popupProps: const PopupProps.menu(
+                                showSearchBox: true,
+                                searchFieldProps: TextFieldProps(
+                                  decoration: InputDecoration(
+                                    hintText: 'Escriba para buscar...',
+                                    prefixIcon: Icon(Icons.search),
+                                  ),
+                                ),
+                              ),
+                              onChanged: (ProductoModel? v) {
+                                setModalState(() {
+                                  productoId = v?.id;
+                                  prodSeleccionado = v;
+                                });
+                              },
+                            );
+                          }
+                          return const LinearProgressIndicator();
+                        },
+                      ),
+                      const SizedBox(height: 15),
+                      if (prodSeleccionado != null) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Precio Unitario: Gs. ${prodSeleccionado!.precioVenta.toStringAsFixed(0)}'),
+                            Text('En Stock: ${prodSeleccionado!.cantidad.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: cantidadCtrl,
+                          decoration: const InputDecoration(labelText: 'Cantidad Utilizada *', border: OutlineInputBorder()),
+                          keyboardType: TextInputType.number,
+                          validator: (v) {
+                            if (v == null || v.isEmpty) return 'Requerido';
+                            final qty = double.tryParse(v);
+                            if (qty == null || qty <= 0) return 'Cantidad inválida';
+                            if (prodSeleccionado!.cantidad < qty) return 'Supera el stock actual';
+                            return null;
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (modalFormKey.currentState!.validate() && prodSeleccionado != null) {
+                            final qty = double.parse(cantidadCtrl.text);
+                            setState(() {
+                              _repuestos.add(RepuestoDetalleModel(
+                                productoId: productoId!,
+                                nombreProducto: prodSeleccionado!.descripcion,
+                                cantidad: qty,
+                                precioUnitario: prodSeleccionado!.precioVenta,
+                                subtotal: qty * prodSeleccionado!.precioVenta,
+                              ));
+                            });
+                            Navigator.pop(context);
+                          }
+                        },
+                        child: const Text('Agregar Repuesto'),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Definir la fecha actual o la guardada
+    final DateTime fechaAMostrar = widget.servicio?.fechaProgramada ?? DateTime.now();
+    final String fechaFormateada = "${fechaAMostrar.day.toString().padLeft(2, '0')}/${fechaAMostrar.month.toString().padLeft(2, '0')}/${fechaAMostrar.year} - ${fechaAMostrar.hour.toString().padLeft(2, '0')}:${fechaAMostrar.minute.toString().padLeft(2, '0')}";
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.servicio == null ? 'Registrar Servicio' : 'Editar Servicio'),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(15.0),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              // Fecha de Creación
+              Padding(
+                padding: const EdgeInsets.only(bottom: 15.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Text('Fecha de Registro: $fechaFormateada', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+
+              // Importar Presupuesto Integrado en el Body (Para evitar cierre por error de contexto)
+              if (widget.servicio == null)
+                Observer(
+                  builder: (_) {
+                    final state = store.presupuestosState;
+                    if (state is SuccessState<List<PresupuestoModel>>) {
+                      final pendientes = state.data.where((p) => p.estado == 'PENDIENTE').toList();
+                      if (pendientes.isEmpty) return const SizedBox.shrink();
+                      
+                      return Card(
+                        color: Colors.purple.shade50,
+                        margin: const EdgeInsets.only(bottom: 15),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.receipt_long, color: Colors.purple),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: DropdownSearch<PresupuestoModel>(
+                                  items: (filter, loadProps) => pendientes,
+                                  itemAsString: (PresupuestoModel p) => 'Presupuesto #${p.id} - ${p.nombreCliente ?? "Sin cliente"}',
+                                  decoratorProps: const DropDownDecoratorProps(
+                                    decoration: InputDecoration(
+                                      hintText: 'Importar desde Presupuesto Pendiente',
+                                      border: InputBorder.none,
+                                    ),
+                                  ),
+                                  popupProps: const PopupProps.menu(
+                                    showSearchBox: true,
+                                    searchFieldProps: TextFieldProps(
+                                      decoration: InputDecoration(
+                                        hintText: 'Buscar presupuesto...',
+                                        prefixIcon: Icon(Icons.search),
+                                      ),
+                                    ),
+                                  ),
+                                  onChanged: (PresupuestoModel? v) {
+                                    if (v != null) {
+                                      _cargarPresupuesto(v);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+
+              // Cliente
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Observer(
+                      builder: (_) {
+                        final state = store.clientesState;
+                        if (state is SuccessState<List<ClienteModel>>) {
+                          final clientes = state.data;
+                          final clienteActual = clientes.cast<ClienteModel?>().firstWhere((c) => c?.id == _clienteId, orElse: () => null);
+
+                          return DropdownSearch<ClienteModel>(
+                            selectedItem: clienteActual,
+                            items: (filter, loadProps) => clientes,
+                            itemAsString: (ClienteModel c) => '${c.nombre} (${c.ruc})',
+                            decoratorProps: const DropDownDecoratorProps(
+                              decoration: InputDecoration(
+                                labelText: 'Cliente *',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            popupProps: const PopupProps.menu(
+                              showSearchBox: true,
+                              searchFieldProps: TextFieldProps(
+                                decoration: InputDecoration(
+                                  hintText: 'Buscar por nombre o RUC...',
+                                  prefixIcon: Icon(Icons.search),
+                                ),
+                              ),
+                            ),
+                            onChanged: (ClienteModel? v) => setState(() => _clienteId = v?.id),
+                            validator: (v) => v == null ? 'Obligatorio' : null,
+                          );
+                        }
+                        return const SizedBox(height: 55, child: Center(child: CircularProgressIndicator()));
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 5.0),
+                    child: IconButton.filled(
+                      onPressed: _quickRegisterCliente,
+                      icon: const Icon(Icons.person_add),
+                      tooltip: 'Registro Rápido de Cliente',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 15),
+
+              // Técnico
+              Observer(
+                builder: (_) {
+                  final state = store.tecnicosState;
+                  if (state is SuccessState<List<TecnicoModel>>) {
+                    final tecnicos = state.data;
+                    final tecnicoActual = tecnicos.cast<TecnicoModel?>().firstWhere((t) => t?.id == _tecnicoId, orElse: () => null);
+
+                    return DropdownSearch<TecnicoModel>(
+                      selectedItem: tecnicoActual,
+                      items: (filter, loadProps) => tecnicos,
+                      itemAsString: (TecnicoModel t) => t.nombreCompleto,
+                      decoratorProps: const DropDownDecoratorProps(
+                        decoration: InputDecoration(
+                          labelText: 'Técnico Asignado *',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      popupProps: const PopupProps.menu(
+                        showSearchBox: true,
+                        searchFieldProps: TextFieldProps(
+                          decoration: InputDecoration(
+                            hintText: 'Buscar por nombre...',
+                            prefixIcon: Icon(Icons.search),
+                          ),
+                        ),
+                      ),
+                      onChanged: (TecnicoModel? v) => setState(() => _tecnicoId = v?.id),
+                      validator: (v) => v == null ? 'Seleccione un técnico' : null,
+                    );
+                  }
+                  return const SizedBox(height: 55, child: Center(child: CircularProgressIndicator()));
+                },
+              ),
+              const SizedBox(height: 15),
+
+              DropdownButtonFormField<String>(
+                value: _estado,
+                decoration: const InputDecoration(labelText: 'Estado General', border: OutlineInputBorder()),
+                items: ['PENDIENTE', 'PROCESO', 'FINALIZADO', 'CANCELADO'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                onChanged: (v) => setState(() => _estado = v!),
+              ),
+              
+              // Si está finalizado, dar una pequeña advertencia sobre el stock
+              if (_estado == 'FINALIZADO')
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    '⚠️ Al guardar como FINALIZADO, los repuestos se descontarán del stock.',
+                    style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              const SizedBox(height: 20),
+
+              // ---- SECCIÓN TRABAJOS A REALIZAR ----
+              ExpansionTile(
+                initiallyExpanded: false,
+                title: const Text('Trabajos / Mano de Obra', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Subtotal: Gs. ${_precioTotalTrabajos.toStringAsFixed(0)}'),
+                children: [
+                  _detalles.isEmpty 
+                    ? const Padding(padding: EdgeInsets.all(10.0), child: Text('No hay trabajos registrados'))
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _detalles.length,
+                        itemBuilder: (context, index) {
+                          final item = _detalles[index];
+                          return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            child: ListTile(
+                              dense: true,
+                              title: Text(item.descripcion),
+                              subtitle: Text('Gs. ${item.precio.toStringAsFixed(0)}'),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                onPressed: () => setState(() => _detalles.removeAt(index)),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 5.0),
+                child: OutlinedButton.icon(
+                  onPressed: _showAddTrabajoModal,
+                  icon: const Icon(Icons.handyman),
+                  label: const Text('Añadir Trabajo'),
+                  style: OutlinedButton.styleFrom(alignment: Alignment.center),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // ---- SECCIÓN REPUESTOS UTILIZADOS ----
+              ExpansionTile(
+                initiallyExpanded: false,
+                title: const Text('Repuestos Utilizados', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Subtotal: Gs. ${_precioTotalRepuestos.toStringAsFixed(0)}'),
+                children: [
+                  _repuestos.isEmpty 
+                    ? const Padding(padding: EdgeInsets.all(10.0), child: Text('No se utilizaron repuestos'))
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _repuestos.length,
+                        itemBuilder: (context, index) {
+                          final item = _repuestos[index];
+                          return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            child: ListTile(
+                              dense: true,
+                              title: Text(item.nombreProducto),
+                              subtitle: Text('${item.cantidad.toStringAsFixed(0)} x Gs. ${item.precioUnitario.toStringAsFixed(0)} = Gs. ${item.subtotal.toStringAsFixed(0)}'),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                onPressed: () => setState(() => _repuestos.removeAt(index)),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 5.0),
+                child: OutlinedButton.icon(
+                  onPressed: _showAddRepuestoModal,
+                  icon: const Icon(Icons.inventory_2),
+                  label: const Text('Añadir Repuesto del Inventario'),
+                  style: OutlinedButton.styleFrom(alignment: Alignment.center),
+                ),
+              ),
+              const Divider(thickness: 2, height: 30),
+
+              // TOTAL GENERAL
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('TOTAL A COBRAR:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text('Gs. ${_precioTotalGeneral.toStringAsFixed(0)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Imágenes
+              Text('Fotografías del Servicio (${_imagenesPaths.length}/5)', style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  ..._imagenesPaths.asMap().entries.map((e) {
+                    final index = e.key;
+                    final path = e.value;
+                    return Stack(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.file(File(path), fit: BoxFit.cover),
+                          ),
+                        ),
+                        Positioned(
+                          right: -10,
+                          top: -10,
+                          child: IconButton(
+                            icon: const Icon(Icons.remove_circle, color: Colors.red),
+                            onPressed: () => setState(() => _imagenesPaths.removeAt(index)),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                  if (_imagenesPaths.length < 5)
+                    InkWell(
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          builder: (_) => Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ListTile(
+                                leading: const Icon(Icons.camera_alt),
+                                title: const Text('Tomar Foto'),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  _pickImage(ImageSource.camera);
+                                },
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.photo_library),
+                                title: const Text('Elegir de Galería'),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  _pickImage(ImageSource.gallery);
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          border: Border.all(color: Colors.grey, style: BorderStyle.solid),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.add_a_photo, color: Colors.grey),
+                      ),
+                    ),
+                ],
+              ),
+              
+              const SizedBox(height: 40),
+              Observer(
+                builder: (_) => ElevatedButton(
+                  onPressed: store.formState is LoadingState ? null : _save,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: store.formState is LoadingState
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Guardar Servicio y Aplicar Stock', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+              const SizedBox(height: 30),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

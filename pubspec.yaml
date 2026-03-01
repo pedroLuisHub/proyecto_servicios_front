@@ -1,0 +1,55 @@
+name: servicio_app
+description: "Sistema de Gestion de Servicios - Frontend"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.6
+  
+  # Navegación e Inyección de Dependencias
+  flutter_modular: ^6.3.2
+  
+  # Gestión de Estado (MobX)
+  mobx: ^2.3.1
+  flutter_mobx: ^2.2.1
+  
+  # Comunicación API
+  dio: ^5.4.1
+  
+  # Selección de Imágenes
+  image_picker: ^1.0.7
+  
+  # Mapeo de JSON
+  json_annotation: ^4.8.1
+  url_launcher: ^6.3.2
+  geolocator: ^14.0.2
+  sqflite: ^2.4.2
+  path_provider: ^2.1.5
+  sqflite_common_ffi: ^2.3.6
+  pdf: ^3.11.3
+  printing: ^5.14.2
+  share_plus: ^12.0.1
+  simple_barcode_scanner: ^0.3.0
+  dropdown_search: ^6.0.2
+  flutter_slidable: ^4.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  
+  # Generación de Código
+  build_runner: ^2.4.8
+  mobx_codegen: ^2.6.0
+  json_serializable: ^6.7.1
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
