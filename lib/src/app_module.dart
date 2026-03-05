@@ -7,6 +7,7 @@ import 'package:servicio_app/src/modules/presupuestos/presupuesto_module.dart';
 import 'package:servicio_app/src/modules/productos/producto_module.dart';
 import 'package:servicio_app/src/modules/catalogos/catalogo_module.dart';
 import 'package:servicio_app/src/modules/cuentas_cobrar/cuenta_cobrar_module.dart';
+import 'package:servicio_app/src/modules/financiero/financiero_module.dart';
 
 import 'package:servicio_app/src/modules/cuentas_cobrar/cuenta_cobrar_store.dart';
 
@@ -26,5 +27,6 @@ class AppModule extends Module {
     r.module('/productos', module: ProductoModule());
     r.module('/catalogos', module: CatalogoModule());
     r.module('/cuentas', module: CuentaCobrarModule());
+    r.module('/financiero', module: FinancieroModule());
   }
 }

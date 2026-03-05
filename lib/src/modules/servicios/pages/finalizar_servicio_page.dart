@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:intl/intl.dart';
 import '../models/servicio_model.dart';
@@ -22,16 +21,16 @@ class FinalizarServicioPage extends StatefulWidget {
 class _FinalizarServicioPageState extends State<FinalizarServicioPage> {
   final servicioStore = Modular.get<ServicioStore>();
   final cuentaStore = Modular.get<CuentaCobrarStore>();
-  final clienteRepo = Modular.get<
-      ClienteRepository>(); // If you don't have this injected, we get it another way, maybe use the list of clients from setting.
+  final clienteRepo = Modular.get<ClienteRepository>();
 
-  final numberFormat =
-      NumberFormat.currency(locale: 'es_PY', symbol: 'PYG', decimalDigits: 0);
+  final _numberFormat =
+      NumberFormat.currency(locale: 'es_PY', symbol: 'Gs.', decimalDigits: 0);
   final _entradaController = TextEditingController();
 
   double _entrada = 0.0;
   DateTime? _fechaVencimiento;
   ClienteModel? _cliente;
+  bool _loading = false;
 
   @override
   void initState() {
@@ -39,36 +38,43 @@ class _FinalizarServicioPageState extends State<FinalizarServicioPage> {
     _entradaController.text = '0';
     _entradaController.addListener(() {
       final val = double.tryParse(_entradaController.text) ?? 0.0;
-      setState(() {
-        _entrada = val;
-      });
+      setState(() => _entrada = val);
     });
-
     _loadCliente();
   }
 
+  @override
+  void dispose() {
+    _entradaController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadCliente() async {
-    // try to get the full cliente info using the repo
     try {
       final cliente = await clienteRepo.getById(widget.servicio.clienteId);
-      setState(() {
-        _cliente = cliente;
-      });
-    } catch (e) {
-      // ignore
-    }
+      if (mounted) setState(() => _cliente = cliente);
+    } catch (_) {}
   }
 
   double get _saldo {
-    final saldo = widget.servicio.precioTotal - _entrada;
-    return saldo < 0 ? 0 : saldo;
+    final s = widget.servicio.precioTotal - _entrada;
+    return s < 0 ? 0 : s;
   }
 
   void _limpiar() {
     _entradaController.text = '0';
-    setState(() {
-      _fechaVencimiento = null;
-    });
+    setState(() => _fechaVencimiento = null);
+  }
+
+  Future<void> _selectDate() async {
+    final dt = await showDatePicker(
+      context: context,
+      initialDate:
+          _fechaVencimiento ?? DateTime.now().add(const Duration(days: 30)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+    if (dt != null) setState(() => _fechaVencimiento = dt);
   }
 
   Future<void> _finalizar({bool sharePdf = false}) async {
@@ -80,13 +86,16 @@ class _FinalizarServicioPageState extends State<FinalizarServicioPage> {
       return;
     }
 
-    // 1. Mark service as finalized
+    setState(() => _loading = true);
+
+    // 1. Guardar servicio como FINALIZADO
     final servicioFinalizado = ServicioModel(
       id: widget.servicio.id,
       presupuestoId: widget.servicio.presupuestoId,
       fechaProgramada: widget.servicio.fechaProgramada,
       precioTotal: widget.servicio.precioTotal,
       estado: 'FINALIZADO',
+      observacion: widget.servicio.observacion,
       clienteId: widget.servicio.clienteId,
       nombreCliente: widget.servicio.nombreCliente,
       tecnicoId: widget.servicio.tecnicoId,
@@ -97,9 +106,9 @@ class _FinalizarServicioPageState extends State<FinalizarServicioPage> {
     );
     await servicioStore.saveServicio(servicioFinalizado);
 
-    // 2. Add cuenta cobrar
+    // 2. Crear cuenta por cobrar
     final ahora = DateFormat('dd/MM/yy HH:mm').format(DateTime.now());
-    final vencstr = DateFormat('dd/MM/yy').format(_fechaVencimiento!);
+    final vencStr = DateFormat('dd/MM/yy').format(_fechaVencimiento!);
 
     final cuenta = CuentaCobrarModel(
       servicioId: widget.servicio.id,
@@ -107,7 +116,7 @@ class _FinalizarServicioPageState extends State<FinalizarServicioPage> {
       nombreCliente: widget.servicio.nombreCliente ?? '-',
       rucCliente: _cliente?.ruc,
       fechaEmision: ahora,
-      fechaVencimiento: vencstr,
+      fechaVencimiento: vencStr,
       total: widget.servicio.precioTotal,
       saldo: _saldo,
       estado: _saldo <= 0 ? 'PAGADO' : 'PENDIENTE',
@@ -116,7 +125,7 @@ class _FinalizarServicioPageState extends State<FinalizarServicioPage> {
     List<CobroModel> cobros = [];
     if (_entrada > 0) {
       cobros.add(CobroModel(
-        cuentaCobrarId: 0, // Assigned inside the transaction
+        cuentaCobrarId: 0,
         fecha: ahora,
         monto: _entrada,
         metodoPago: 'ENTRADA / CONTADO',
@@ -129,193 +138,249 @@ class _FinalizarServicioPageState extends State<FinalizarServicioPage> {
       await PdfService.generateAndShareServicio(servicioFinalizado);
     }
 
-    if (mounted) {
-      Navigator.pop(context); // returns to list page
-    }
-  }
+    setState(() => _loading = false);
 
-  Future<void> _selectDate() async {
-    final dt = await showDatePicker(
-      context: context,
-      initialDate: _fechaVencimiento ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (dt != null) {
-      setState(() {
-        _fechaVencimiento = dt;
-      });
+    if (mounted) {
+      // Pop two levels: this page + the form page
+      Modular.to.navigate('/servicios/');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.inversePrimary;
+
     return Scaffold(
-      backgroundColor: Colors.deepPurple,
       appBar: AppBar(
-        title: const Text('Cuenta por cobrar'),
-        backgroundColor: Colors.deepPurple,
-        elevation: 0,
-        foregroundColor: Colors.white,
+        title: const Text('Cuenta por Cobrar - Crédito'),
+        backgroundColor: primary,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Container(
-          decoration: BoxDecoration(
-              color: Colors.deepPurple.shade400,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white24)),
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Total:',
-                  style: TextStyle(color: Colors.white70, fontSize: 16)),
-              Row(
-                children: [
-                  const Text('🇵🇾 ', style: TextStyle(fontSize: 24)),
-                  Text(
-                      numberFormat
-                          .format(widget.servicio.precioTotal)
-                          .replaceAll('PYG', '')
-                          .trim(),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold)),
-                ],
-              ),
-              const Divider(color: Colors.white30, height: 30),
-              const Text('Saldo:',
-                  style: TextStyle(color: Colors.white70, fontSize: 16)),
-              Row(
-                children: [
-                  const Text('🇵🇾 ', style: TextStyle(fontSize: 24)),
-                  Text(numberFormat.format(_saldo).replaceAll('PYG', '').trim(),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold)),
-                ],
-              ),
-
-              const SizedBox(height: 30),
-
-              // Client info block
-              Container(
-                decoration: BoxDecoration(
-                    color: Colors.deepPurple.shade900.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(10)),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ---- Bloque Total / Saldo ----
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total:',
+                            style: TextStyle(fontSize: 14, color: Colors.grey)),
+                        Text(
+                          _numberFormat.format(widget.servicio.precioTotal),
+                          style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.deepPurple),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Saldo a cobrar:',
+                            style: TextStyle(fontSize: 14, color: Colors.grey)),
+                        Text(
+                          _numberFormat.format(_saldo),
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: _saldo > 0 ? Colors.orange : Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ---- Bloque Cliente ----
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Datos del Cliente',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: theme.primaryColor,
+                            fontSize: 15)),
+                    const SizedBox(height: 12),
+                    TextFormField(
                       enabled: false,
-                      controller:
-                          TextEditingController(text: _cliente?.ruc ?? ''),
-                      style: const TextStyle(color: Colors.white),
+                      initialValue: _cliente?.ruc ?? '',
                       decoration: const InputDecoration(
                         labelText: 'RUC',
-                        labelStyle: TextStyle(color: Colors.white70),
                         border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.badge),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
+                    const SizedBox(height: 12),
+                    TextFormField(
                       enabled: false,
-                      controller: TextEditingController(
-                          text: widget.servicio.nombreCliente),
-                      style: const TextStyle(color: Colors.white),
+                      initialValue: widget.servicio.nombreCliente ?? '',
                       decoration: const InputDecoration(
                         labelText: 'Cliente',
-                        labelStyle: TextStyle(color: Colors.white70),
                         border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ---- Bloque Entrada / Vencimiento ----
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Condiciones de Crédito',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: theme.primaryColor,
+                            fontSize: 15)),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           child: TextField(
                             controller: _entradaController,
                             keyboardType: TextInputType.number,
-                            style: const TextStyle(color: Colors.white),
                             decoration: const InputDecoration(
-                              labelText: 'Entrada',
-                              labelStyle: TextStyle(color: Colors.white70),
+                              labelText: 'Entrada (Gs.)',
                               border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.payments),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: InkWell(
                             onTap: _selectDate,
                             child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: 'Venc.',
-                                labelStyle: TextStyle(color: Colors.white70),
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: 'Vencimiento',
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.calendar_month),
+                                suffixIcon: _fechaVencimiento != null
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, size: 18),
+                                        onPressed: () => setState(
+                                            () => _fechaVencimiento = null),
+                                      )
+                                    : null,
                               ),
                               child: Text(
                                 _fechaVencimiento != null
-                                    ? DateFormat('dd/MM/yy')
+                                    ? DateFormat('dd/MM/yyyy')
                                         .format(_fechaVencimiento!)
-                                    : 'Seleccione',
-                                style: const TextStyle(color: Colors.white),
+                                    : 'Seleccionar...',
+                                style: TextStyle(
+                                  color: _fechaVencimiento != null
+                                      ? null
+                                      : Colors.grey,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ],
-                    )
+                    ),
+                    if (_fechaVencimiento == null)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          '⚠️ El vencimiento es obligatorio para guardar',
+                          style: TextStyle(color: Colors.orange, fontSize: 12),
+                        ),
+                      ),
                   ],
                 ),
               ),
+            ),
 
-              const SizedBox(height: 100),
-            ],
-          ),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
       bottomNavigationBar: SafeArea(
-        child: Container(
-          color: Colors.deepPurple,
+        child: Padding(
           padding: const EdgeInsets.all(10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  onPressed: _limpiar,
-                  child: const Text('Limpiar',
-                      style: TextStyle(color: Colors.white)),
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _limpiar,
+                        icon: const Icon(Icons.cleaning_services,
+                            color: Colors.red),
+                        label: const Text('Limpiar',
+                            style: TextStyle(color: Colors.red)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _finalizar(sharePdf: false),
+                        icon:
+                            const Icon(Icons.check_circle, color: Colors.white),
+                        label: const Text('Finalizar',
+                            style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurple,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _finalizar(sharePdf: true),
+                        icon: const Icon(Icons.picture_as_pdf,
+                            color: Colors.white),
+                        label: const Text('Finalizar PDF',
+                            style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 5),
-              Expanded(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                  onPressed: () => _finalizar(sharePdf: false),
-                  child: const Text('Finalizar',
-                      style: TextStyle(color: Colors.white)),
-                ),
-              ),
-              const SizedBox(width: 5),
-              Expanded(
-                child: ElevatedButton(
-                  style:
-                      ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  onPressed: () => _finalizar(sharePdf: true),
-                  child: const Text('Finalizar\nPDF',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white, fontSize: 11)),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

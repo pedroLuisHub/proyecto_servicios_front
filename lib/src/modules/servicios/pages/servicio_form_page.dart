@@ -30,6 +30,7 @@ class _ServicioFormPageState extends State<ServicioFormPage> {
   late ReactionDisposer _disposer;
 
   String _estado = 'PENDIENTE';
+  bool _esCredito = false; // toggle Contado/Crédito
   int? _tecnicoId;
   String? _nombreTecnico;
   int? _clienteId;
@@ -194,7 +195,13 @@ class _ServicioFormPageState extends State<ServicioFormPage> {
         repuestos: _repuestos,
         imagenes: _imagenesPaths,
       );
-      store.saveServicio(servicio);
+
+      // Si es crédito y es nuevo servicio, abrir flujo de cuenta por cobrar
+      if (_esCredito && widget.servicio == null) {
+        Modular.to.pushNamed('/servicios/finalizar', arguments: servicio);
+      } else {
+        store.saveServicio(servicio);
+      }
     } else {
       if (_clienteId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -845,6 +852,56 @@ class _ServicioFormPageState extends State<ServicioFormPage> {
                           fontWeight: FontWeight.bold,
                           color: Colors.green)),
                 ],
+              ),
+              const SizedBox(height: 16),
+
+              // TOGGLE CONTADO / CRÉDITO
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _esCredito ? Colors.deepPurple : Colors.green,
+                    width: 2,
+                  ),
+                  color: (_esCredito ? Colors.deepPurple : Colors.green)
+                      .withOpacity(0.05),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _esCredito ? 'Venta a Crédito' : 'Venta al Contado',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color:
+                                _esCredito ? Colors.deepPurple : Colors.green,
+                          ),
+                        ),
+                        Text(
+                          _esCredito
+                              ? 'Se generará una cuenta por cobrar'
+                              : 'Se finalizará y cobrará directamente',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                    Switch(
+                      value: _esCredito,
+                      activeColor: Colors.deepPurple,
+                      inactiveThumbColor: Colors.green,
+                      inactiveTrackColor: Colors.green.withOpacity(0.3),
+                      onChanged: widget.servicio != null
+                          ? null // No se puede cambiar al editar
+                          : (val) => setState(() => _esCredito = val),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
 

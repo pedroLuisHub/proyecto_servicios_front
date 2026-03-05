@@ -203,6 +203,20 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
+            ExpansionTile(
+              leading: const Icon(Icons.account_balance_wallet),
+              title: const Text('Módulo Financiero'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.receipt_long),
+                  title: const Text('Cuentas por Cobrar'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Modular.to.pushNamed('/cuentas/');
+                  },
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -282,6 +296,12 @@ class _HomePageState extends State<HomePage> {
                     icon: Icons.inventory_2,
                     color: Colors.teal,
                     onTap: () => Modular.to.pushNamed('/productos/'),
+                  ),
+                  _MenuCard(
+                    title: 'Financiero',
+                    icon: Icons.account_balance_wallet,
+                    color: Colors.deepPurple,
+                    onTap: () => Modular.to.pushNamed('/financiero/'),
                   ),
                 ],
               ),
