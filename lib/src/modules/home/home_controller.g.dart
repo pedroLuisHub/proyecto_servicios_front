@@ -25,6 +25,31 @@ mixin _$HomeController on _HomeControllerBase, Store {
     });
   }
 
+  late final _$empresaNombreAtom =
+      Atom(name: '_HomeControllerBase.empresaNombre', context: context);
+
+  @override
+  String get empresaNombre {
+    _$empresaNombreAtom.reportRead();
+    return super.empresaNombre;
+  }
+
+  @override
+  set empresaNombre(String value) {
+    _$empresaNombreAtom.reportWrite(value, super.empresaNombre, () {
+      super.empresaNombre = value;
+    });
+  }
+
+  late final _$setEmpresaNombreAsyncAction =
+      AsyncAction('_HomeControllerBase.setEmpresaNombre', context: context);
+
+  @override
+  Future<void> setEmpresaNombre(String nombre) {
+    return _$setEmpresaNombreAsyncAction
+        .run(() => super.setEmpresaNombre(nombre));
+  }
+
   late final _$selectLogoAsyncAction =
       AsyncAction('_HomeControllerBase.selectLogo', context: context);
 
@@ -36,7 +61,8 @@ mixin _$HomeController on _HomeControllerBase, Store {
   @override
   String toString() {
     return '''
-logoPath: ${logoPath}
+logoPath: ${logoPath},
+empresaNombre: ${empresaNombre}
     ''';
   }
 }

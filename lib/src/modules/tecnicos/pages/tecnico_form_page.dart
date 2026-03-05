@@ -31,8 +31,8 @@ class _TecnicoFormPageState extends State<TecnicoFormPage> {
     super.initState();
     if (widget.tecnico != null) {
       _nombreController.text = widget.tecnico!.nombre;
-      _apellidoController.text = widget.tecnico!.apellido;
-      _documentoController.text = widget.tecnico!.documento;
+      _apellidoController.text = widget.tecnico!.apellido ?? '';
+      _documentoController.text = widget.tecnico!.documento ?? '';
       _telefonoController.text = widget.tecnico!.telefono ?? '';
       _especialidadController.text = widget.tecnico!.especialidad ?? '';
     }
@@ -67,7 +67,7 @@ class _TecnicoFormPageState extends State<TecnicoFormPage> {
         id: widget.tecnico?.id,
         nombre: _nombreController.text,
         apellido: _apellidoController.text,
-        documento: _documentoController.text,
+        documento: _documentoController.text.trim().isEmpty ? null : _documentoController.text.trim(),
         telefono: _telefonoController.text,
         especialidad: _especialidadController.text,
         estado: widget.tecnico?.estado ?? true,
@@ -97,14 +97,12 @@ class _TecnicoFormPageState extends State<TecnicoFormPage> {
               const SizedBox(height: 15),
               TextFormField(
                 controller: _apellidoController,
-                decoration: const InputDecoration(labelText: 'Apellido *', border: OutlineInputBorder()),
-                validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
+                decoration: const InputDecoration(labelText: 'Apellido', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 15),
               TextFormField(
                 controller: _documentoController,
-                decoration: const InputDecoration(labelText: 'Documento (CI) *', border: OutlineInputBorder()),
-                validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
+                decoration: const InputDecoration(labelText: 'Documento (CI)', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 15),
               TextFormField(

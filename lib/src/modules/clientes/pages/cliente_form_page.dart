@@ -38,7 +38,7 @@ class _ClienteFormPageState extends State<ClienteFormPage> {
     super.initState();
     
     if (widget.cliente != null) {
-      _rucController.text = widget.cliente!.ruc;
+      _rucController.text = widget.cliente!.ruc ?? '';
       _nombreController.text = widget.cliente!.nombre;
       _telefonoController.text = widget.cliente!.telefono ?? '';
       _emailController.text = widget.cliente!.email ?? '';
@@ -85,7 +85,7 @@ class _ClienteFormPageState extends State<ClienteFormPage> {
     if (_formKey.currentState!.validate()) {
       final cliente = ClienteModel(
         id: widget.cliente?.id,
-        ruc: _rucController.text,
+        ruc: _rucController.text.trim().isEmpty ? null : _rucController.text.trim(),
         nombre: _nombreController.text,
         telefono: _telefonoController.text,
         email: _emailController.text,
@@ -193,11 +193,10 @@ class _ClienteFormPageState extends State<ClienteFormPage> {
               TextFormField(
                 controller: _rucController,
                 decoration: const InputDecoration(
-                  labelText: 'RUC o CI *',
+                  labelText: 'RUC o CI',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.badge),
                 ),
-                validator: (v) => (v == null || v.isEmpty) ? 'Campo obligatorio' : null,
               ),
               const SizedBox(height: 15),
               TextFormField(

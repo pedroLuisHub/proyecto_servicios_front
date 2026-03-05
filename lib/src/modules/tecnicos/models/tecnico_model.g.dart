@@ -9,8 +9,8 @@ part of 'tecnico_model.dart';
 TecnicoModel _$TecnicoModelFromJson(Map<String, dynamic> json) => TecnicoModel(
       id: (json['id'] as num?)?.toInt(),
       nombre: json['nombre'] as String,
-      apellido: json['apellido'] as String,
-      documento: json['documento'] as String,
+      apellido: json['apellido'] as String?,
+      documento: json['documento'] as String?,
       telefono: json['telefono'] as String?,
       especialidad: json['especialidad'] as String?,
       estado: json['estado'] as bool? ?? true,

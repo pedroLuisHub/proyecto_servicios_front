@@ -7,6 +7,7 @@ import 'repositories/servicio_repository.dart';
 import 'servicio_store.dart';
 import 'pages/servicio_list_page.dart';
 import 'pages/servicio_form_page.dart';
+import 'pages/finalizar_servicio_page.dart';
 import 'models/servicio_model.dart';
 
 class ServicioModule extends Module {
@@ -30,8 +31,13 @@ class ServicioModule extends Module {
   @override
   void routes(r) {
     r.child('/', child: (context) => const ServicioListPage());
-    r.child('/form', child: (context) => ServicioFormPage(
-      servicio: r.args.data as ServicioModel?,
-    ));
+    r.child('/form',
+        child: (context) => ServicioFormPage(
+              servicio: r.args.data as ServicioModel?,
+            ));
+    r.child('/finalizar',
+        child: (context) => FinalizarServicioPage(
+              servicio: r.args.data as ServicioModel,
+            ));
   }
 }

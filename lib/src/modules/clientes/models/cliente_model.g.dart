@@ -8,7 +8,7 @@ part of 'cliente_model.dart';
 
 ClienteModel _$ClienteModelFromJson(Map<String, dynamic> json) => ClienteModel(
       id: (json['id'] as num?)?.toInt(),
-      ruc: json['ruc'] as String,
+      ruc: json['ruc'] as String?,
       nombre: json['nombre'] as String,
       telefono: json['telefono'] as String?,
       email: json['email'] as String?,

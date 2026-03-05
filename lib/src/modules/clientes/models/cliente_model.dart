@@ -5,7 +5,7 @@ part 'cliente_model.g.dart';
 @JsonSerializable()
 class ClienteModel {
   final int? id;
-  final String ruc;
+  final String? ruc;
   final String nombre;
   final String? telefono;
   final String? email;
@@ -16,7 +16,7 @@ class ClienteModel {
 
   ClienteModel({
     this.id,
-    required this.ruc,
+    this.ruc,
     required this.nombre,
     this.telefono,
     this.email,

@@ -41,6 +41,38 @@ mixin _$PresupuestoStore on _PresupuestoStoreBase, Store {
     });
   }
 
+  late final _$productosStateAtom =
+      Atom(name: '_PresupuestoStoreBase.productosState', context: context);
+
+  @override
+  UIState<List<ProductoModel>> get productosState {
+    _$productosStateAtom.reportRead();
+    return super.productosState;
+  }
+
+  @override
+  set productosState(UIState<List<ProductoModel>> value) {
+    _$productosStateAtom.reportWrite(value, super.productosState, () {
+      super.productosState = value;
+    });
+  }
+
+  late final _$tecnicosStateAtom =
+      Atom(name: '_PresupuestoStoreBase.tecnicosState', context: context);
+
+  @override
+  UIState<List<TecnicoModel>> get tecnicosState {
+    _$tecnicosStateAtom.reportRead();
+    return super.tecnicosState;
+  }
+
+  @override
+  set tecnicosState(UIState<List<TecnicoModel>> value) {
+    _$tecnicosStateAtom.reportWrite(value, super.tecnicosState, () {
+      super.tecnicosState = value;
+    });
+  }
+
   late final _$formStateAtom =
       Atom(name: '_PresupuestoStoreBase.formState', context: context);
 
@@ -57,6 +89,14 @@ mixin _$PresupuestoStore on _PresupuestoStoreBase, Store {
     });
   }
 
+  late final _$loadTecnicosAsyncAction =
+      AsyncAction('_PresupuestoStoreBase.loadTecnicos', context: context);
+
+  @override
+  Future<void> loadTecnicos() {
+    return _$loadTecnicosAsyncAction.run(() => super.loadTecnicos());
+  }
+
   late final _$loadPresupuestosAsyncAction =
       AsyncAction('_PresupuestoStoreBase.loadPresupuestos', context: context);
 
@@ -71,6 +111,14 @@ mixin _$PresupuestoStore on _PresupuestoStoreBase, Store {
   @override
   Future<void> loadClientes() {
     return _$loadClientesAsyncAction.run(() => super.loadClientes());
+  }
+
+  late final _$loadProductosAsyncAction =
+      AsyncAction('_PresupuestoStoreBase.loadProductos', context: context);
+
+  @override
+  Future<void> loadProductos() {
+    return _$loadProductosAsyncAction.run(() => super.loadProductos());
   }
 
   late final _$savePresupuestoAsyncAction =
@@ -96,6 +144,8 @@ mixin _$PresupuestoStore on _PresupuestoStoreBase, Store {
     return '''
 state: ${state},
 clientesState: ${clientesState},
+productosState: ${productosState},
+tecnicosState: ${tecnicosState},
 formState: ${formState}
     ''';
   }

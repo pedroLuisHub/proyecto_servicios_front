@@ -5,11 +5,15 @@ import 'package:servicio_app/src/modules/servicios/servicio_module.dart';
 import 'package:servicio_app/src/modules/clientes/cliente_module.dart';
 import 'package:servicio_app/src/modules/presupuestos/presupuesto_module.dart';
 import 'package:servicio_app/src/modules/productos/producto_module.dart';
+import 'package:servicio_app/src/modules/catalogos/catalogo_module.dart';
+import 'package:servicio_app/src/modules/cuentas_cobrar/cuenta_cobrar_module.dart';
+
+import 'package:servicio_app/src/modules/cuentas_cobrar/cuenta_cobrar_store.dart';
 
 class AppModule extends Module {
   @override
   void binds(i) {
-    // Ya no necesitamos Dio globalmente porque usamos SQLite
+    i.addSingleton(CuentaCobrarStore.new);
   }
 
   @override
@@ -20,5 +24,7 @@ class AppModule extends Module {
     r.module('/clientes', module: ClienteModule());
     r.module('/presupuestos', module: PresupuestoModule());
     r.module('/productos', module: ProductoModule());
+    r.module('/catalogos', module: CatalogoModule());
+    r.module('/cuentas', module: CuentaCobrarModule());
   }
 }

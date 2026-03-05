@@ -7,9 +7,22 @@ class CatalogoRepository {
 
   CatalogoRepository(this.tableName);
 
-  Future<List<CatalogoModel>> getAll() async {
+  Future<List<CatalogoModel>> getAll({Map<String, dynamic>? filters}) async {
     final db = await dbHelper.database;
-    final result = await db.query(tableName, orderBy: 'descripcion ASC');
+    String? where;
+    List<dynamic>? whereArgs;
+
+    if (filters != null && filters.isNotEmpty) {
+      where = filters.keys.map((k) => '$k = ?').join(' AND ');
+      whereArgs = filters.values.toList();
+    }
+
+    final result = await db.query(
+      tableName, 
+      where: where, 
+      whereArgs: whereArgs, 
+      orderBy: 'descripcion ASC'
+    );
     return result.map((json) => CatalogoModel.fromDbMap(json)).toList();
   }
 
@@ -20,6 +33,25 @@ class CatalogoRepository {
       id: id,
       descripcion: catalogo.descripcion,
       estado: catalogo.estado,
+    );
+  }
+
+  Future<void> update(CatalogoModel catalogo) async {
+    final db = await dbHelper.database;
+    await db.update(
+      tableName,
+      catalogo.toDbMap(),
+      where: 'id = ?',
+      whereArgs: [catalogo.id],
+    );
+  }
+
+  Future<void> delete(int id) async {
+    final db = await dbHelper.database;
+    await db.delete(
+      tableName,
+      where: 'id = ?',
+      whereArgs: [id],
     );
   }
 }

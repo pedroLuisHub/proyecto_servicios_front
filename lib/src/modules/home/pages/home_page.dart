@@ -22,6 +22,190 @@ class _HomePageState extends State<HomePage> {
         centerTitle: true,
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            Observer(
+              builder: (_) => DrawerHeader(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.inversePrimary,
+                ),
+                child: GestureDetector(
+                  onTap: () async {
+                    final nombreCtrl =
+                        TextEditingController(text: controller.empresaNombre);
+                    final result = await showDialog<String>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Editar Empresa'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: nombreCtrl,
+                              decoration: const InputDecoration(
+                                  labelText: 'Nombre de la empresa'),
+                            ),
+                            const SizedBox(height: 15),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context, nombreCtrl.text);
+                                controller.selectLogo();
+                              },
+                              icon: const Icon(Icons.image),
+                              label: const Text('Cambiar Logo'),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancelar'),
+                          ),
+                          TextButton(
+                            onPressed: () =>
+                                Navigator.pop(context, nombreCtrl.text),
+                            child: const Text('Guardar'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (result != null) {
+                      controller.setEmpresaNombre(result);
+                    }
+                  },
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (controller.logoPath != null)
+                        CircleAvatar(
+                          radius: 45,
+                          backgroundImage:
+                              FileImage(File(controller.logoPath!)),
+                        )
+                      else
+                        const Icon(Icons.home_repair_service,
+                            size: 60, color: Colors.white),
+                      const SizedBox(height: 10),
+                      Text(
+                        controller.empresaNombre,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            ExpansionTile(
+              leading: const Icon(Icons.handyman),
+              title: const Text('Módulo de Servicios'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.list_alt),
+                  title: const Text('Listado de Servicios'),
+                  onTap: () {
+                    Navigator.pop(context); // Cerrar Drawer
+                    Modular.to.pushNamed('/servicios/');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.request_quote),
+                  title: const Text('Presupuestos'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Modular.to.pushNamed('/presupuestos/');
+                  },
+                ),
+              ],
+            ),
+            ExpansionTile(
+              leading: const Icon(Icons.people),
+              title: const Text('Módulo de Clientes'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.person),
+                  title: const Text('Listado de Clientes'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Modular.to.pushNamed('/clientes/');
+                  },
+                ),
+              ],
+            ),
+            ExpansionTile(
+              leading: const Icon(Icons.engineering),
+              title: const Text('Módulo de Técnicos'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.person_pin),
+                  title: const Text('Listado de Técnicos'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Modular.to.pushNamed('/tecnicos/');
+                  },
+                ),
+              ],
+            ),
+            ExpansionTile(
+              leading: const Icon(Icons.inventory_2),
+              title: const Text('Módulo de Productos'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.list),
+                  title: const Text('Inventario de Productos'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Modular.to.pushNamed('/productos/');
+                  },
+                ),
+              ],
+            ),
+            ExpansionTile(
+              leading: const Icon(Icons.settings_applications),
+              title: const Text('Registros Generales'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.devices),
+                  title: const Text('Tipos de Dispositivo'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Modular.to.pushNamed('/catalogos/tipos_dispositivo');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.branding_watermark),
+                  title: const Text('Marcas'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Modular.to.pushNamed('/catalogos/marcas');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.model_training),
+                  title: const Text('Modelos'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Modular.to.pushNamed('/catalogos/modelos');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.build),
+                  title: const Text('Tipos de Servicio'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Modular.to.pushNamed('/catalogos/tipos_servicio');
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -42,8 +226,10 @@ class _HomePageState extends State<HomePage> {
                       ? const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.add_a_photo, size: 40, color: Colors.blueGrey),
-                            Text('Seleccionar Logo', style: TextStyle(fontSize: 12)),
+                            Icon(Icons.add_a_photo,
+                                size: 40, color: Colors.blueGrey),
+                            Text('Seleccionar Logo',
+                                style: TextStyle(fontSize: 12)),
                           ],
                         )
                       : ClipRRect(
@@ -57,7 +243,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 40),
-            // Cuadrícula de Menú
+            // Cuadrícula de Menú (opcional si ya está en el drawer, pero lo mantenemos para acceso rápido)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: GridView.count(

@@ -7,9 +7,10 @@ class ServicioModel {
   final DateTime fechaProgramada;
   final double precioTotal;
   final String estado;
+  final String? observacion;
   final int clienteId;
   final String? nombreCliente;
-  final int tecnicoId;
+  final int? tecnicoId;
   final String? nombreTecnico;
   
   final List<ItemDetalleModel> detalles;
@@ -22,9 +23,10 @@ class ServicioModel {
     required this.fechaProgramada,
     required this.precioTotal,
     required this.estado,
+    this.observacion,
     required this.clienteId,
     this.nombreCliente,
-    required this.tecnicoId,
+    this.tecnicoId,
     this.nombreTecnico,
     this.detalles = const [],
     this.repuestos = const [],
@@ -38,9 +40,10 @@ class ServicioModel {
       fechaProgramada: DateTime.parse(map['fechaProgramada'] as String),
       precioTotal: (map['precioTotal'] as num).toDouble(),
       estado: map['estado'] as String,
+      observacion: map['observacion'] as String?,
       clienteId: map['clienteId'] as int,
       nombreCliente: map['nombreCliente'] as String?,
-      tecnicoId: map['tecnicoId'] as int,
+      tecnicoId: map['tecnicoId'] as int?,
       nombreTecnico: map['nombreTecnico'] as String?,
       detalles: detalles ?? [],
       repuestos: repuestos ?? [],
@@ -56,6 +59,7 @@ class ServicioModel {
       'fechaProgramada': fechaProgramada.toIso8601String(),
       'precioTotal': precioTotal,
       'estado': estado,
+      'observacion': observacion,
       'clienteId': clienteId,
       'nombreCliente': nombreCliente,
       'tecnicoId': tecnicoId,

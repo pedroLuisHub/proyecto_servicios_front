@@ -7,6 +7,9 @@ class CatalogoDropdown extends StatefulWidget {
   final String tableName;
   final int? value;
   final void Function(int?) onChanged;
+  final Map<String, dynamic>? filters;
+  final Map<String, dynamic>? extraData;
+  final bool isRequired;
 
   const CatalogoDropdown({
     super.key,
@@ -14,6 +17,9 @@ class CatalogoDropdown extends StatefulWidget {
     required this.tableName,
     required this.value,
     required this.onChanged,
+    this.filters,
+    this.extraData,
+    this.isRequired = true,
   });
 
   @override
@@ -32,9 +38,19 @@ class _CatalogoDropdownState extends State<CatalogoDropdown> {
     _loadItems();
   }
 
+  @override
+  void didUpdateWidget(CatalogoDropdown oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.tableName != oldWidget.tableName || 
+        widget.filters?.toString() != oldWidget.filters?.toString()) {
+      _repository = CatalogoRepository(widget.tableName);
+      _loadItems();
+    }
+  }
+
   Future<void> _loadItems() async {
     setState(() => _isLoading = true);
-    final items = await _repository.getAll();
+    final items = await _repository.getAll(filters: widget.filters);
     setState(() {
       _items = items;
       _isLoading = false;
@@ -74,7 +90,10 @@ class _CatalogoDropdownState extends State<CatalogoDropdown> {
     );
 
     if (result != null && result.isNotEmpty) {
-      final newItem = CatalogoModel(descripcion: result);
+      final newItem = CatalogoModel(
+        descripcion: result,
+        parentId: widget.extraData?['marcaId'],
+      );
       final savedItem = await _repository.save(newItem);
       await _loadItems();
       widget.onChanged(savedItem.id);
@@ -105,7 +124,7 @@ class _CatalogoDropdownState extends State<CatalogoDropdown> {
                         ))
                     .toList(),
             onChanged: widget.onChanged,
-            validator: (v) => v == null ? 'Seleccione ${widget.label}' : null,
+            validator: widget.isRequired ? (v) => v == null ? 'Seleccione ${widget.label}' : null : null,
           ),
         ),
         const SizedBox(width: 10),

@@ -6,8 +6,8 @@ part 'tecnico_model.g.dart';
 class TecnicoModel {
   final int? id;
   final String nombre;
-  final String apellido;
-  final String documento;
+  final String? apellido;
+  final String? documento;
   final String? telefono;
   final String? especialidad;
   final bool estado;
@@ -15,8 +15,8 @@ class TecnicoModel {
   TecnicoModel({
     this.id,
     required this.nombre,
-    required this.apellido,
-    required this.documento,
+    this.apellido,
+    this.documento,
     this.telefono,
     this.especialidad,
     this.estado = true,
@@ -26,5 +26,5 @@ class TecnicoModel {
   Map<String, dynamic> toJson() => _$TecnicoModelToJson(this);
 
   // Helper para el nombre completo
-  String get nombreCompleto => '$nombre $apellido';
+  String get nombreCompleto => apellido != null ? '$nombre $apellido' : nombre;
 }

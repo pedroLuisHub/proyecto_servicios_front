@@ -82,7 +82,7 @@ class ClienteRepository {
   ClienteModel _fromDbMap(Map<String, Object?> map) {
     return ClienteModel(
       id: map['id'] as int?,
-      ruc: map['ruc'] as String,
+      ruc: map['ruc'] as String?,
       nombre: map['nombre'] as String,
       telefono: map['telefono'] as String?,
       email: map['email'] as String?,

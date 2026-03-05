@@ -80,7 +80,7 @@ class _ClienteListPageState extends State<ClienteListPage> {
                   final todosLosClientes = state.data;
                   final clientes = todosLosClientes.where((c) {
                     return c.nombre.toLowerCase().contains(_searchQuery) ||
-                           c.ruc.toLowerCase().contains(_searchQuery);
+                           (c.ruc?.toLowerCase().contains(_searchQuery) ?? false);
                   }).toList();
 
                   if (clientes.isEmpty) {

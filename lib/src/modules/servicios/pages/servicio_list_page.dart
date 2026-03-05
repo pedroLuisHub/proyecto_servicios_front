@@ -24,38 +24,7 @@ class _ServicioListPageState extends State<ServicioListPage> {
   }
 
   void _confirmFinalize(ServicioModel servicio) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Finalizar Servicio'),
-        content: const Text('¿Desea marcar este servicio como FINALIZADO?\n\nAl hacerlo, se descontarán automáticamente los repuestos del inventario.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Clonamos el modelo cambiando únicamente el estado
-              final servicioFinalizado = ServicioModel(
-                id: servicio.id,
-                presupuestoId: servicio.presupuestoId,
-                fechaProgramada: servicio.fechaProgramada,
-                precioTotal: servicio.precioTotal,
-                estado: 'FINALIZADO',
-                clienteId: servicio.clienteId,
-                nombreCliente: servicio.nombreCliente,
-                tecnicoId: servicio.tecnicoId,
-                nombreTecnico: servicio.nombreTecnico,
-                detalles: servicio.detalles,
-                repuestos: servicio.repuestos,
-                imagenes: servicio.imagenes,
-              );
-              store.saveServicio(servicioFinalizado);
-            },
-            child: const Text('Finalizar', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
+    Modular.to.pushNamed('/servicios/finalizar', arguments: servicio);
   }
 
   void _confirmDelete(ServicioModel servicio) {
@@ -65,7 +34,9 @@ class _ServicioListPageState extends State<ServicioListPage> {
         title: const Text('Confirmar'),
         content: Text('¿Desea eliminar el servicio #${servicio.id}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
           TextButton(
             onPressed: () {
               store.deleteServicio(servicio.id!);
@@ -127,7 +98,8 @@ class _ServicioListPageState extends State<ServicioListPage> {
                   return Card(
                     elevation: 2,
                     margin: const EdgeInsets.only(bottom: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: Slidable(
@@ -136,7 +108,8 @@ class _ServicioListPageState extends State<ServicioListPage> {
                           motion: const ScrollMotion(),
                           children: [
                             SlidableAction(
-                              onPressed: (_) => PdfService.generateAndShareServicio(servicio),
+                              onPressed: (_) =>
+                                  PdfService.generateAndShareServicio(servicio),
                               backgroundColor: Colors.blue,
                               foregroundColor: Colors.white,
                               icon: Icons.share,
@@ -151,39 +124,90 @@ class _ServicioListPageState extends State<ServicioListPage> {
                             ),
                           ],
                         ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                          title: Text('Servicio #${servicio.id ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        child: IntrinsicHeight(
+                          child: Row(
                             children: [
-                              const SizedBox(height: 5),
-                              Text('Cliente: ${servicio.nombreCliente ?? "Desconocido"}'),
-                              Text('Técnico: ${servicio.nombreTecnico ?? "Sin asignar"}'),
-                              const SizedBox(height: 5),
-                              Text(
-                                'Total: Gs. ${servicio.precioTotal.toStringAsFixed(0)}',
-                                style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                              Expanded(
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 15, vertical: 8),
+                                  title: Text('Servicio #${servicio.id ?? "-"}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 5),
+                                      Text(
+                                          'Cliente: ${servicio.nombreCliente ?? "Desconocido"}'),
+                                      Text(
+                                          'Técnico: ${servicio.nombreTecnico ?? "Sin asignar"}'),
+                                      const SizedBox(height: 5),
+                                      Text(
+                                        'Total: Gs. ${servicio.precioTotal.toStringAsFixed(0)}',
+                                        style: TextStyle(
+                                            color:
+                                                servicio.estado == 'FINALIZADO'
+                                                    ? Colors.green
+                                                    : Colors.orange,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _StatusBadge(status: servicio.estado),
+                                      if (servicio.estado != 'FINALIZADO') ...[
+                                        const SizedBox(width: 8),
+                                        OutlinedButton.icon(
+                                          onPressed: () =>
+                                              _confirmFinalize(servicio),
+                                          icon: const Icon(Icons.check,
+                                              color: Colors.green, size: 20),
+                                          label: const Text('Confirmar',
+                                              style: TextStyle(
+                                                  color: Colors.green,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12)),
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(
+                                                color: Colors.green),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 0),
+                                            minimumSize: const Size(0, 30),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  onTap: () {
+                                    Modular.to.pushNamed('/servicios/form',
+                                        arguments: servicio);
+                                  },
+                                ),
+                              ),
+                              // Indicador visual de deslizamiento
+                              Container(
+                                width: 24,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: const BorderRadius.only(
+                                    topRight: Radius.circular(10),
+                                    bottomRight: Radius.circular(10),
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.chevron_left,
+                                    size: 18,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _StatusBadge(status: servicio.estado),
-                              if (servicio.estado != 'FINALIZADO') ...[
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: const Icon(Icons.check_circle_outline, color: Colors.green, size: 28),
-                                  tooltip: 'Marcar como Finalizado',
-                                  onPressed: () => _confirmFinalize(servicio),
-                                ),
-                              ],
-                            ],
-                          ),
-                          onTap: () {
-                            Modular.to.pushNamed('/servicios/form', arguments: servicio);
-                          },
                         ),
                       ),
                     ),
@@ -212,16 +236,28 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     Color color;
     switch (status.toUpperCase()) {
-      case 'PENDIENTE': color = Colors.orange; break;
-      case 'PROCESO': color = Colors.blue; break;
-      case 'FINALIZADO': color = Colors.green; break;
-      case 'CANCELADO': color = Colors.red; break;
-      default: color = Colors.grey;
+      case 'PENDIENTE':
+        color = Colors.orange;
+        break;
+      case 'PROCESO':
+        color = Colors.blue;
+        break;
+      case 'FINALIZADO':
+        color = Colors.green;
+        break;
+      case 'CANCELADO':
+        color = Colors.red;
+        break;
+      default:
+        color = Colors.grey;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
-      child: Text(status, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+      decoration:
+          BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+      child: Text(status,
+          style: const TextStyle(
+              color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
 }

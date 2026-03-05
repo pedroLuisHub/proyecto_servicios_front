@@ -20,13 +20,15 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 11,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
   }
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    await db.execute('DROP TABLE IF EXISTS cobros');
+    await db.execute('DROP TABLE IF EXISTS cuentas_cobrar');
     await db.execute('DROP TABLE IF EXISTS servicio_repuestos');
     await db.execute('DROP TABLE IF EXISTS presupuesto_repuestos');
     await db.execute('DROP TABLE IF EXISTS ajuste_detalles');
@@ -50,15 +52,20 @@ class DatabaseHelper {
     const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
     const textType = 'TEXT';
     const textTypeNotNull = 'TEXT NOT NULL';
-    const boolType = 'INTEGER NOT NULL DEFAULT 1'; 
+    const boolType = 'INTEGER NOT NULL DEFAULT 1';
     const doubleType = 'REAL';
 
     // ---- TABLAS CATÁLOGO ----
-    await db.execute('CREATE TABLE tipos_servicio (id $idType, descripcion $textTypeNotNull, estado $boolType)');
-    await db.execute('CREATE TABLE tipos_dispositivo (id $idType, descripcion $textTypeNotNull, estado $boolType)');
-    await db.execute('CREATE TABLE marcas (id $idType, descripcion $textTypeNotNull, estado $boolType)');
-    await db.execute('CREATE TABLE modelos (id $idType, descripcion $textTypeNotNull, estado $boolType)');
-    await db.execute('CREATE TABLE categorias (id $idType, descripcion $textTypeNotNull, estado $boolType)');
+    await db.execute(
+        'CREATE TABLE tipos_servicio (id $idType, descripcion $textTypeNotNull, estado $boolType)');
+    await db.execute(
+        'CREATE TABLE tipos_dispositivo (id $idType, descripcion $textTypeNotNull, estado $boolType)');
+    await db.execute(
+        'CREATE TABLE marcas (id $idType, descripcion $textTypeNotNull, estado $boolType)');
+    await db.execute(
+        'CREATE TABLE modelos (id $idType, marcaId INTEGER, descripcion $textTypeNotNull, estado $boolType)');
+    await db.execute(
+        'CREATE TABLE categorias (id $idType, descripcion $textTypeNotNull, estado $boolType)');
 
     // ---- TABLA PRODUCTOS (INVENTARIO) ----
     await db.execute('''
@@ -82,8 +89,8 @@ class DatabaseHelper {
       CREATE TABLE tecnicos (
         id $idType,
         nombre $textTypeNotNull,
-        apellido $textTypeNotNull,
-        documento $textTypeNotNull UNIQUE,
+        apellido $textType,
+        documento $textType UNIQUE,
         telefono $textType,
         especialidad $textType,
         estado $boolType
@@ -93,7 +100,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE clientes (
         id $idType,
-        ruc $textTypeNotNull UNIQUE,
+        ruc $textType UNIQUE,
         nombre $textTypeNotNull,
         telefono $textType,
         email $textType,
@@ -133,7 +140,11 @@ class DatabaseHelper {
         precioTotal $doubleType NOT NULL,
         fecha $textTypeNotNull,
         estado $textTypeNotNull,
-        FOREIGN KEY (clienteId) REFERENCES clientes (id)
+        tecnicoId INTEGER,
+        nombreTecnico $textType,
+        imagenes $textType,
+        FOREIGN KEY (clienteId) REFERENCES clientes (id),
+        FOREIGN KEY (tecnicoId) REFERENCES tecnicos (id)
       )
     ''');
 
@@ -174,9 +185,10 @@ class DatabaseHelper {
         fechaProgramada $textTypeNotNull,
         precioTotal $doubleType NOT NULL,
         estado $textTypeNotNull,
+        observacion $textType,
         clienteId INTEGER NOT NULL,
         nombreCliente $textType,
-        tecnicoId INTEGER NOT NULL,
+        tecnicoId INTEGER,
         nombreTecnico $textType,
         imagenes $textType,
         FOREIGN KEY (clienteId) REFERENCES clientes (id),
@@ -211,6 +223,36 @@ class DatabaseHelper {
         subtotal $doubleType NOT NULL,
         FOREIGN KEY (servicioId) REFERENCES servicios (id) ON DELETE CASCADE,
         FOREIGN KEY (productoId) REFERENCES productos (id)
+      )
+    ''');
+
+    // ---- TABLA CUENTAS POR COBRAR ----
+    await db.execute('''
+      CREATE TABLE cuentas_cobrar (
+        id $idType,
+        servicioId INTEGER,
+        clienteId INTEGER NOT NULL,
+        nombreCliente $textTypeNotNull,
+        rucCliente $textType,
+        fechaEmision $textTypeNotNull,
+        fechaVencimiento $textTypeNotNull,
+        total $doubleType NOT NULL,
+        saldo $doubleType NOT NULL,
+        estado $textTypeNotNull,
+        FOREIGN KEY (servicioId) REFERENCES servicios (id),
+        FOREIGN KEY (clienteId) REFERENCES clientes (id)
+      )
+    ''');
+
+    // ---- TABLA COBROS ----
+    await db.execute('''
+      CREATE TABLE cobros (
+        id $idType,
+        cuentaCobrarId INTEGER NOT NULL,
+        fecha $textTypeNotNull,
+        monto $doubleType NOT NULL,
+        metodoPago $textTypeNotNull,
+        FOREIGN KEY (cuentaCobrarId) REFERENCES cuentas_cobrar (id) ON DELETE CASCADE
       )
     ''');
   }

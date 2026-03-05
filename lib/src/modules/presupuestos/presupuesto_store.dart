@@ -7,6 +7,9 @@ import '../clientes/repositories/cliente_repository.dart';
 import '../productos/models/producto_model.dart';
 import '../productos/repositories/producto_repository.dart';
 
+import '../tecnicos/models/tecnico_model.dart';
+import '../tecnicos/repositories/tecnico_repository.dart';
+
 part 'presupuesto_store.g.dart';
 
 class PresupuestoStore = _PresupuestoStoreBase with _$PresupuestoStore;
@@ -15,8 +18,9 @@ abstract class _PresupuestoStoreBase with Store {
   final PresupuestoRepository _presupuestoRepository;
   final ClienteRepository _clienteRepository;
   final ProductoRepository _productoRepository;
+  final TecnicoRepository _tecnicoRepository;
 
-  _PresupuestoStoreBase(this._presupuestoRepository, this._clienteRepository, this._productoRepository);
+  _PresupuestoStoreBase(this._presupuestoRepository, this._clienteRepository, this._productoRepository, this._tecnicoRepository);
 
   @observable
   UIState<List<PresupuestoModel>> state = const InitialState();
@@ -28,7 +32,21 @@ abstract class _PresupuestoStoreBase with Store {
   UIState<List<ProductoModel>> productosState = const InitialState();
 
   @observable
+  UIState<List<TecnicoModel>> tecnicosState = const InitialState();
+
+  @observable
   UIState<void> formState = const InitialState();
+
+  @action
+  Future<void> loadTecnicos() async {
+    tecnicosState = const LoadingState();
+    try {
+      final list = await _tecnicoRepository.getAll();
+      tecnicosState = SuccessState(list);
+    } catch (e) {
+      tecnicosState = ErrorState(e.toString());
+    }
+  }
 
   @action
   Future<void> loadPresupuestos() async {
